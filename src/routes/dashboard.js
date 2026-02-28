@@ -130,8 +130,8 @@ router.get('/teacher', authenticate, authorize('teacher', 'admin'), async (req, 
 
     res.json({ myClasses, myAssignments, pendingGrades, classPerformance });
   } catch (error) {
-    res.status(500).json({ error: error.message });
     console.error('Dashboard teacher error:', error);
+    res.status(500).json({ error: error.message });
     res.status(500).json({ error: 'Erro ao carregar dashboard professor' });
   }
 });
