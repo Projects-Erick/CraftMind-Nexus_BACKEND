@@ -58,14 +58,15 @@ router.get('/:id', authenticate, async (req, res) => {
 router.post('/', authenticate, authorize('admin', 'secretary'), async (req, res) => {
   try {
     const { name, code, schoolYearId, academicYear, maxStudents } = req.body;
+    const finalCode = code || name.replace(/\s+/g, '-').toUpperCase() + '-' + Date.now().toString().slice(-4);
     const result = await db.insert(
       'INSERT INTO classes (name, code, school_year_id, academic_year, max_students) VALUES (?, ?, ?, ?, ?)',
-      [name, code, schoolYearId, academicYear || new Date().getFullYear(), maxStudents || 40]
+      [name, finalCode, schoolYearId, academicYear || new Date().getFullYear(), maxStudents || 40]
     );
     res.status(201).json({ message: 'Turma criada', classId: result.insertId });
   } catch (e) {
     if (e.code === '23505') return res.status(409).json({ error: 'Código de turma já existe' });
-    res.status(500).json({ error: 'Erro ao criar turma' });
+    res.status(500).json({ error: e.message });
   }
 });
 
