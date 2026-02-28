@@ -41,7 +41,7 @@ router.get('/admin', authenticate, authorize('admin'), async (req, res) => {
     });
   } catch (error) {
     console.error('Dashboard admin error:', error);
-    res.status(500).json({ error: 'Erro ao carregar dashboard admin' });
+    if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });
 
@@ -78,7 +78,7 @@ router.get('/secretary', authenticate, authorize('admin', 'secretary'), async (r
     res.json({ classes, recentUsers, gradeOverview });
   } catch (error) {
     console.error('Dashboard secretary error:', error);
-    res.status(500).json({ error: 'Erro ao carregar dashboard secretaria' });
+    if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });
 
@@ -131,8 +131,7 @@ router.get('/teacher', authenticate, authorize('teacher', 'admin'), async (req, 
     res.json({ myClasses, myAssignments, pendingGrades, classPerformance });
   } catch (error) {
     console.error('Dashboard teacher error:', error);
-    res.status(500).json({ error: error.message });
-    res.status(500).json({ error: 'Erro ao carregar dashboard professor' });
+    if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });
 
@@ -196,7 +195,7 @@ router.get('/student', authenticate, authorize('student'), async (req, res) => {
     });
   } catch (error) {
     console.error('Dashboard student error:', error);
-    res.status(500).json({ error: 'Erro ao carregar dashboard aluno' });
+    if (!res.headersSent) res.status(500).json({ error: error.message });
   }
 });
 
