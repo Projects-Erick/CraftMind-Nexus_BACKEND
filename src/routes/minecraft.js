@@ -15,12 +15,19 @@ router.post('/auth', minecraftAuth, async (req, res) => {
     let user = await db.queryOne(
       `SELECT u.id, u.username, u.display_name, u.is_active, r.name as role
        FROM users u JOIN roles r ON u.role_id = r.id
-       WHERE u.minecraft_uuid = ? OR u.minecraft_username = ?`,
-      [minecraftUuid, minecraftUsername]
+       WHERE u.minecraft_uuid = ?
+          OR u.minecraft_username = ?
+          OR LOWER(u.username) = LOWER(?)`,
+      [minecraftUuid, minecraftUsername, minecraftUsername]
     );
 
     if (!user) {
-      return res.status(404).json({ authenticated: false, message: 'Jogador não vinculado ao sistema' });
+      logger.warn(`MC Auth: jogador não encontrado — UUID: ${minecraftUuid}, Username: ${minecraftUsername}`);
+      return res.status(404).json({
+        authenticated: false,
+        message: 'Jogador não vinculado ao sistema',
+        hint: 'Peça ao admin para vincular sua conta no dashboard'
+      });
     }
 
     if (!user.is_active) {
@@ -188,8 +195,7 @@ router.post('/submit', minecraftAuth, async (req, res) => {
          DO UPDATE SET selected_option = EXCLUDED.selected_option,
                        is_correct = EXCLUDED.is_correct,
                        score_earned = EXCLUDED.score_earned`,
-        [submission.id, questionId, selectedOption, isCorrect, scoreEarned,
-         selectedOption, isCorrect, scoreEarned]
+        [submission.id, questionId, selectedOption, isCorrect, scoreEarned]
       );
 
       res.json({
@@ -399,7 +405,7 @@ async function executeCode(codeSubId, language, sourceCode, question) {
   const langMap = { javascript: 'javascript', python: 'python3', java: 'java' };
 
   try {
-    const response = await axios.post(`${process.env.SANDBOX_API_URL}/execute`, {
+    const response = await axios.post(`${process.env.PISTON_API_URL}/execute`, {
       language: langMap[language] || language,
       version: '*',
       files: [{ content: sourceCode }],
