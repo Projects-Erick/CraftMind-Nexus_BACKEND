@@ -180,4 +180,48 @@ router.post('/admin', authenticate, async (req, res) => {
   }
 });
 
+// ── Admin: vincula por username do sistema (vindo do plugin) ─
+// POST /api/link/admin-by-username  (plugin com x-mc-api-key)
+router.post('/admin-by-username', minecraftAuth, async (req, res) => {
+  try {
+    const { sysUsername, minecraftUsername, minecraftUuid } = req.body;
+    if (!sysUsername || !minecraftUsername)
+      return res.status(400).json({ error: 'sysUsername e minecraftUsername são obrigatórios' });
+
+    const user = await db.queryOne(
+      `SELECT id, username, display_name FROM users WHERE LOWER(username) = LOWER(?)`,
+      [sysUsername]
+    );
+    if (!user)
+      return res.status(404).json({ error: `Conta '${sysUsername}' não encontrada no sistema` });
+
+    await db.query(
+      `UPDATE users SET minecraft_username = ?, minecraft_uuid = ? WHERE id = ?`,
+      [minecraftUsername, minecraftUuid || null, user.id]
+    );
+
+    res.json({ success: true, displayName: user.display_name, username: user.username });
+  } catch (error) {
+    console.error('Admin link by username error:', error);
+    res.status(500).json({ error: 'Erro ao vincular' });
+  }
+});
+
+// ── Admin: remove vínculo pelo userId (vindo do plugin) ──────
+// POST /api/link/admin-unlink  (plugin com x-mc-api-key)
+router.post('/admin-unlink', minecraftAuth, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId obrigatório' });
+
+    await db.query(
+      `UPDATE users SET minecraft_uuid = NULL, minecraft_username = NULL WHERE id = ?`,
+      [userId]
+    );
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao remover vínculo' });
+  }
+});
+
 module.exports = router;
