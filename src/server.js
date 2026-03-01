@@ -26,6 +26,7 @@ const designRoutes = require('./routes/design');
 const notificationRoutes = require('./routes/notifications');
 const reportRoutes = require('./routes/reports');
 const schoolYearsRoutes = require('./routes/schoolYears');
+const linkRoutes         = require('./routes/link');
 
 const app = express();
 const httpServer = createServer(app);
@@ -87,6 +88,7 @@ app.use('/api/design', designRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/school-years', schoolYearsRoutes);
+app.use('/api/link',         linkRoutes);
 
 // Health check
 app.get('/health', (req, res) => {
