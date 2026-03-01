@@ -115,7 +115,7 @@ router.get('/assignment/:id/questions', minecraftAuth, async (req, res) => {
 
     if (!assignment) return res.status(404).json({ error: 'Atividade não encontrada' });
 
-    const questions = await db.query(
+    const rawQuestions = await db.query(
       `SELECT q.id, q.title, q.content, q.question_type, q.difficulty, q.points, q.time_limit_seconds
        FROM assignment_questions aq
        JOIN questions q ON aq.question_id = q.id
@@ -124,22 +124,37 @@ router.get('/assignment/:id/questions', minecraftAuth, async (req, res) => {
       [req.params.id]
     );
 
-    for (const q of questions) {
-      if (q.question_type === 'multiple_choice') {
-        q.options = await db.query(
-          'SELECT option_letter, content FROM question_options WHERE question_id = ? ORDER BY order_index',
+    // Monta questões com campos padronizados para o plugin Java
+    const questions = [];
+    for (const q of rawQuestions) {
+      const question = {
+        id:            q.id,
+        title:         q.title,
+        content:       q.content,
+        question_type: q.question_type,
+        difficulty:    q.difficulty || 'medium',
+        points:        q.points || 0,
+        timeLimitSeconds: q.time_limit_seconds || 0,
+      };
+
+      if (q.question_type === 'multiple_choice' || q.question_type === 'true_false') {
+        const opts = await db.query(
+          'SELECT option_letter AS letter, content FROM question_options WHERE question_id = ? ORDER BY order_index',
           [q.id]
         );
+        question.options = opts;
       }
+
+      questions.push(question);
     }
 
     res.json({
       assignment: {
-        id: assignment.id,
-        title: assignment.title,
-        type: assignment.type,
+        id:               assignment.id,
+        title:            assignment.title,
+        type:             assignment.type,
         timeLimitMinutes: assignment.time_limit_minutes,
-        xpReward: assignment.xp_reward
+        xpReward:         assignment.xp_reward
       },
       questions
     });
