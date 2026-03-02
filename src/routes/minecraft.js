@@ -169,11 +169,19 @@ router.post('/submit', minecraftAuth, async (req, res) => {
   try {
     const { userId, assignmentId, questionId, selectedOption, answerText, timeSpent } = req.body;
 
-    // Encontra/cria submissão
+    // Encontra/cria submissão — bloqueia se já entregue
     let submission = await db.queryOne(
-      'SELECT id FROM submissions WHERE assignment_id = ? AND student_id = ?',
+      `SELECT id, status FROM submissions WHERE assignment_id = ? AND student_id = ?`,
       [assignmentId, userId]
     );
+
+    if (submission && (submission.status === 'submitted' || submission.status === 'graded')) {
+      return res.status(409).json({
+        error: 'Atividade já entregue',
+        alreadySubmitted: true,
+        status: submission.status
+      });
+    }
 
     if (!submission) {
       const result = await db.insert(
@@ -279,13 +287,59 @@ router.post('/finish', minecraftAuth, async (req, res) => {
       );
     });
 
-    // Notifica via WebSocket pro dashboard
+    // Busca info do aluno e professores da turma para notificar
+    const studentInfo = await db.queryOne(
+      `SELECT u.display_name, a.title, a.class_id
+       FROM users u, assignments a
+       WHERE u.id = ? AND a.id = ?`,
+      [userId, assignmentId]
+    );
+
+    // Notifica o aluno
     wsManager.notifyUser(userId, {
       type: 'SUBMISSION_COMPLETE',
       score: totalScore,
       percentual: Math.round(percentual),
       xpEarned
     });
+
+    // Notifica professores e admins que têm essa turma
+    if (studentInfo) {
+      const teachers = await db.query(
+        `SELECT DISTINCT u.id FROM users u
+         JOIN roles r ON u.role_id = r.id
+         JOIN class_teachers ct ON ct.teacher_id = u.id
+         WHERE ct.class_id = ? AND r.name IN ('teacher', 'admin')`,
+        [studentInfo.class_id]
+      );
+
+      for (const teacher of teachers) {
+        wsManager.notifyUser(teacher.id, {
+          type: 'NEW_SUBMISSION',
+          studentName:    studentInfo.display_name,
+          assignmentTitle: studentInfo.title,
+          score:          totalScore,
+          percentual:     Math.round(percentual),
+          submissionId:   submission.id
+        });
+      }
+
+      // Admins também recebem
+      const admins = await db.query(
+        `SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id WHERE r.name = 'admin'`,
+        []
+      );
+      for (const admin of admins) {
+        wsManager.notifyUser(admin.id, {
+          type: 'NEW_SUBMISSION',
+          studentName:    studentInfo.display_name,
+          assignmentTitle: studentInfo.title,
+          score:          totalScore,
+          percentual:     Math.round(percentual),
+          submissionId:   submission.id
+        });
+      }
+    }
 
     res.json({
       success: true,
