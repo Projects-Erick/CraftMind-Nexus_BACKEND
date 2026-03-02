@@ -192,9 +192,14 @@ router.get('/', authenticate, async (req, res) => {
       sql += ' AND s.student_id = ?';
       params.push(req.user.id);
     } else if (req.user.role === 'teacher') {
-      sql += ' AND a.teacher_id = ?';
-      params.push(req.user.id);
+      // Professor vê submissions das turmas onde ele é professor
+      sql += ` AND (a.teacher_id = ?
+               OR a.class_id IN (
+                 SELECT class_id FROM class_teachers WHERE teacher_id = ?
+               ))`;
+      params.push(req.user.id, req.user.id);
     }
+    // admin vê tudo (sem filtro adicional)
 
     if (assignmentId) { sql += ' AND s.assignment_id = ?'; params.push(assignmentId); }
     if (studentId && req.user.role !== 'student') { sql += ' AND s.student_id = ?'; params.push(studentId); }

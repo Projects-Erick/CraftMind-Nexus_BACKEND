@@ -79,6 +79,8 @@ router.get('/assignments/:userId', minecraftAuth, async (req, res) => {
   try {
     const { userId } = req.params;
 
+    const uid = parseInt(userId);
+
     const assignments = await db.query(
       `SELECT a.id, a.title, a.type, a.time_limit_minutes, a.xp_reward,
               s.name as subject_name, s.color as subject_color,
@@ -86,11 +88,17 @@ router.get('/assignments/:userId', minecraftAuth, async (req, res) => {
        FROM assignments a
        JOIN class_students cs ON cs.class_id = a.class_id
        JOIN subjects s ON a.subject_id = s.id
-       LEFT JOIN submissions sub ON sub.assignment_id = a.id AND sub.student_id = ?
+       LEFT JOIN submissions sub ON sub.assignment_id = a.id
+                                AND sub.student_id = ?
+                                AND sub.id = (
+                                  SELECT id FROM submissions
+                                  WHERE assignment_id = a.id AND student_id = ?
+                                  ORDER BY submitted_at DESC NULLS LAST LIMIT 1
+                                )
        WHERE cs.student_id = ? AND a.status = 'published'
        AND (a.ends_at IS NULL OR a.ends_at > NOW())
        ORDER BY a.created_at DESC`,
-      [userId, userId]
+      [uid, uid, uid]
     );
 
     res.json(assignments);
