@@ -9,14 +9,17 @@ router.get('/', authenticate, authorize('teacher', 'admin'), async (req, res) =>
     const { assignmentId } = req.query;
     let sql = `
       SELECT ds.*, s.student_id, u.display_name as student_name,
-             a.title as assignment_title, sub.status as submission_status
+             a.title as assignment_title, s.status as submission_status
       FROM design_submissions ds
       JOIN submissions s ON ds.submission_id = s.id
       JOIN users u ON s.student_id = u.id
       JOIN assignments a ON s.assignment_id = a.id
-      WHERE a.teacher_id = ?
+      WHERE (
+        a.teacher_id = ?
+        OR a.class_id IN (SELECT class_id FROM class_teachers WHERE teacher_id = ?)
+      )
     `;
-    const params = [req.user.id];
+    const params = [req.user.id, req.user.id];
     if (assignmentId) { sql += ' AND s.assignment_id = ?'; params.push(assignmentId); }
     sql += ' ORDER BY ds.created_at DESC';
     res.json(await db.query(sql, params));
